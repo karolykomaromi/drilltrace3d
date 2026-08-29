@@ -1,0 +1,525 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kémény incidens – interaktív 3D rekonstrukció</title>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+
+<style>
+:root{
+  color-scheme:light dark;
+  --bg:#f5f6f8;--card:#fff;--panel:#fff;--text:#171717;--muted:#666b73;
+  --border:#d8dbe0;--accent:#2563eb;--accent-bg:#eaf1ff
+}
+@media(prefers-color-scheme:dark){
+  :root{--bg:#111315;--card:#1b1e22;--panel:#16191d;--text:#f3f3f3;
+  --muted:#adb2ba;--border:#3b4047;--accent:#79a9ff;--accent-bg:#253750}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.4}
+main{max-width:1450px;margin:auto;padding:18px}
+h1{margin:0;font-size:clamp(1.35rem,2.1vw,2rem)}
+.lead{margin:5px 0 18px;color:var(--muted)}
+.layout{display:grid;grid-template-columns:290px minmax(0,1fr);gap:16px;align-items:start}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px}
+.group+.group{border-top:1px solid var(--border);margin-top:15px;padding-top:14px}
+.group-title{font-weight:750;font-size:.94rem}
+.hint{font-size:.78rem;color:var(--muted);margin:4px 0 0}
+label{display:block;font-size:.89rem;margin-top:10px}
+.range{display:flex;align-items:center;gap:9px;margin-top:3px}
+input[type=range]{flex:1;min-width:0;accent-color:var(--accent)}
+output{width:67px;text-align:right;font-weight:650;font-size:.87rem}
+select{width:100%;margin-top:4px;padding:9px;border-radius:9px;border:1px solid var(--border);background:var(--card);color:var(--text);font:inherit}
+.buttons{display:flex;flex-wrap:wrap;gap:7px;margin-top:6px}
+button{border:1px solid var(--border);background:var(--card);color:var(--text);border-radius:9px;padding:7px 11px;min-height:39px;font:inherit;font-size:.86rem;cursor:pointer}
+button.active{border-color:var(--accent);background:var(--accent-bg);font-weight:750}
+.check{display:flex;align-items:center;gap:8px;margin-top:8px}
+.check input{width:17px;height:17px}
+.mini{display:flex;justify-content:space-between;gap:12px;font-size:.79rem;color:var(--muted);margin-top:5px}
+.mini strong,.mini output{color:var(--text);width:auto}
+.viewer{height:500px;position:relative;overflow:hidden;border:1px solid var(--border);border-radius:14px;background:var(--panel)}
+#view3d{width:100%;height:100%}
+#view3d canvas{display:block;width:100%;height:100%;touch-action:none}
+.overlay{position:absolute;left:9px;bottom:9px;padding:5px 8px;border-radius:7px;background:rgba(255,255,255,.9);color:#555;font-size:.74rem;pointer-events:none}
+.loading{position:absolute;top:10px;left:10px;right:10px;padding:8px 10px;border:1px solid var(--border);border-radius:9px;background:var(--card);font-size:.84rem}
+@media(prefers-color-scheme:dark){.overlay{background:rgba(27,30,34,.92);color:#bbb}}
+.status-grid{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:12px;margin-top:12px}
+.status-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:baseline}
+.badge{border:1px solid var(--border);border-radius:999px;padding:3px 8px;font-size:.75rem;font-weight:750}
+.detail{margin-top:5px;color:var(--muted);font-size:.88rem}
+.depth-detail{margin-top:8px;font-size:.88rem}
+#depthSvg{width:100%;display:block;margin-top:6px}
+.front-card{margin-top:16px}
+.front-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
+.front-wrap{overflow-x:auto;margin-top:8px}
+#frontSvg{display:block;min-width:780px;width:100%}
+.legend{font-size:.78rem;color:var(--muted)}
+@media(max-width:850px){.layout{grid-template-columns:1fr}.viewer{height:420px}.status-grid{grid-template-columns:1fr}}
+@media(max-width:480px){main{padding:10px}.viewer{height:360px}}
+</style>
+</head>
+
+<body>
+<main>
+  <h1>Kémény incidens – interaktív 3D rekonstrukció</h1>
+  <p class="lead">Munkamodell. A vízszintes koordináták a jobb oldali faltól mértek: 0 cm → 160 cm, jobbról balra.</p>
+
+  <div class="layout">
+    <aside class="card">
+      <section class="group">
+        <div class="group-title">Geometria</div>
+        <p class="hint">0 cm = jobb oldali gipszkarton fal.</p>
+
+        <label for="holeX">Vizsgált furat / X-koordináta</label>
+        <div class="range">
+          <input id="holeX" type="range" min="0" max="160" step="0.1" value="60">
+          <output id="holeXOut">60.0 cm</output>
+        </div>
+
+        <label for="shelf">Polc</label>
+        <select id="shelf">
+          <option value="upper">Felső polc</option>
+          <option value="middle">Középső polc</option>
+          <option value="lower">Alsó polc</option>
+        </select>
+
+        <div style="margin-top:9px">
+          <div class="hint">Furatok ezen a polcon</div>
+          <div id="holeButtons" class="buttons"></div>
+        </div>
+      </section>
+
+      <section class="group">
+        <div class="group-title">Rúd / furat mélysége</div>
+        <div class="mini"><span>Rúd teljes hossza</span><strong>50 cm</strong></div>
+        <label for="depth">Falba bevertség</label>
+        <div class="range">
+          <input id="depth" type="range" min="20" max="40" step="0.5" value="30">
+          <output id="depthOut">30.0 cm</output>
+        </div>
+        <div class="mini"><span>Fal előtt maradó rész</span><output id="outsideOut">20.0 cm</output></div>
+      </section>
+
+      <section class="group">
+        <div class="group-title">Ajtók helyzete</div>
+        <label for="gap">Ajtók közötti tiszta hézag</label>
+        <div class="range">
+          <input id="gap" type="range" min="0" max="15" step="0.1" value="7">
+          <output id="gapOut">7.0 cm</output>
+        </div>
+
+        <label for="offset">1. ajtó jobb széle a faltól</label>
+        <div class="range">
+          <input id="offset" type="range" min="20" max="30" step="0.1" value="24">
+          <output id="offsetOut">24.0 cm</output>
+        </div>
+        <p class="hint">A járatok az ajtók közepén maradnak.</p>
+      </section>
+
+      <section class="group">
+        <div class="group-title">Érzékenységvizsgálat</div>
+        <label for="flueWidth">Járatszélesség</label>
+        <div class="range">
+          <input id="flueWidth" type="range" min="12" max="16" step="0.1" value="14">
+          <output id="flueWidthOut">14.0 cm</output>
+        </div>
+
+        <label for="near">Veszélyes közelség</label>
+        <div class="range">
+          <input id="near" type="range" min="0" max="5" step="0.1" value="2">
+          <output id="nearOut">2.0 cm</output>
+        </div>
+      </section>
+
+      <section class="group">
+        <div class="group-title">Megjelenítés</div>
+        <label class="check"><input id="showFlues" type="checkbox" checked> Járatok</label>
+        <label class="check"><input id="showDoors" type="checkbox" checked> Tisztítóajtók</label>
+        <label class="check"><input id="showGypsum" type="checkbox" checked> Gipszkarton oldalfal</label>
+        <label class="check"><input id="showHoles" type="checkbox" checked> Mind a 10 furat</label>
+
+        <label for="opacity">Homlokfal átlátszósága</label>
+        <input id="opacity" type="range" min="0" max="0.65" step="0.05" value="0.18" style="width:100%">
+      </section>
+    </aside>
+
+    <section>
+      <div class="viewer">
+        <div id="view3d"></div>
+        <div id="loading" class="loading">3D nézet betöltése…</div>
+        <div class="overlay">Forgatás: húzás · Zoom: görgő · Pan: jobb gomb</div>
+      </div>
+
+      <div class="status-grid">
+        <section class="card" aria-live="polite">
+          <div class="status-head">
+            <strong id="statusTitle"></strong>
+            <span id="badge" class="badge"></span>
+          </div>
+          <div id="statusDetail" class="detail"></div>
+          <div id="depthDetail" class="depth-detail"></div>
+        </section>
+
+        <section class="card">
+          <strong>Mélységi séma</strong>
+          <svg id="depthSvg" viewBox="0 0 250 105" aria-label="A rúd falba hatolási mélysége"></svg>
+        </section>
+      </div>
+    </section>
+  </div>
+
+  <section class="card front-card">
+    <div class="front-head">
+      <strong>Méretarányos frontnézet</strong>
+      <span class="legend">A járatsáv a 2D nézetben az ajtó felső élénél megáll; 3D-ben az ajtó mögött folytatódik.</span>
+    </div>
+    <div class="front-wrap">
+      <svg id="frontSvg" viewBox="0 0 1000 305" aria-label="Méretarányos kémény-frontnézet"></svg>
+    </div>
+  </section>
+</main>
+
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+const labels=[
+ "III. emelet (Komáromi)",
+ "II. emelet (Bartha)",
+ "I. emelet (Modla)",
+ "Földszint (Závori)"
+];
+
+const holes={
+ upper:[10,60,100],
+ middle:[10,70,130],
+ lower:[10,70,120,160]
+};
+
+const rowY={upper:18,middle:5,lower:-8};
+const ROD_LENGTH=50;
+
+const state={
+ x:60,row:"upper",depth:30,gap:7,offset:24,width:14,near:2,opacity:.18,
+ flues:true,doors:true,gypsum:true,holes:true
+};
+
+const $=id=>document.getElementById(id);
+const el={
+ x:$("holeX"),xOut:$("holeXOut"),row:$("shelf"),buttons:$("holeButtons"),
+ depth:$("depth"),depthOut:$("depthOut"),outsideOut:$("outsideOut"),
+ gap:$("gap"),gapOut:$("gapOut"),offset:$("offset"),offsetOut:$("offsetOut"),
+ width:$("flueWidth"),widthOut:$("flueWidthOut"),near:$("near"),nearOut:$("nearOut"),
+ opacity:$("opacity"),flues:$("showFlues"),doors:$("showDoors"),
+ gypsum:$("showGypsum"),holes:$("showHoles"),
+ title:$("statusTitle"),detail:$("statusDetail"),depthDetail:$("depthDetail"),
+ badge:$("badge"),front:$("frontSvg"),depthSvg:$("depthSvg")
+};
+
+function geometry(){
+ const doors=[],flues=[];
+ for(let i=0;i<4;i++){
+   const min=state.offset+i*(20+state.gap),max=min+20,center=min+10;
+   doors.push({i,min,max,center});
+   flues.push({i,center,min:center-state.width/2,max:center+state.width/2,label:labels[i]});
+ }
+ return{doors,flues};
+}
+
+function classify(x){
+ let nearest=null;
+ for(const f of geometry().flues){
+   if(x>=f.min&&x<=f.max){
+     return{kind:"inside",f,offset:x-f.center,edge:Math.min(x-f.min,f.max-x)};
+   }
+   const d=Math.min(Math.abs(x-f.min),Math.abs(x-f.max));
+   if(!nearest||d<nearest.d)nearest={f,d};
+ }
+ if(nearest&&nearest.d<=state.near)return{kind:"near",f:nearest.f,distance:nearest.d};
+ return{kind:"masonry",nearest};
+}
+
+function nominal(){
+ return Math.abs(state.gap-7)<.001&&Math.abs(state.offset-24)<.001&&Math.abs(state.width-14)<.001;
+}
+function confirmed(x,row){return nominal()&&row==="upper"&&Math.abs(x-60)<.001}
+function holeColor(kind){return kind==="inside"?"#f28e2b":kind==="near"?"#ffd84d":"#111111"}
+
+function renderButtons(){
+ el.buttons.innerHTML="";
+ for(const x of holes[state.row]){
+   const b=document.createElement("button");
+   b.type="button";
+   b.textContent=x+" cm";
+   if(Math.abs(state.x-x)<.001)b.classList.add("active");
+   b.addEventListener("click",()=>{el.x.value=String(x);sync(false,true)});
+   el.buttons.appendChild(b);
+ }
+}
+
+function updateStatus(){
+ const c=classify(state.x),outside=ROD_LENGTH-state.depth;
+ el.xOut.textContent=state.x.toFixed(1)+" cm";
+ el.depthOut.textContent=state.depth.toFixed(1)+" cm";
+ el.outsideOut.textContent=outside.toFixed(1)+" cm";
+ el.gapOut.textContent=state.gap.toFixed(1)+" cm";
+ el.offsetOut.textContent=state.offset.toFixed(1)+" cm";
+ el.widthOut.textContent=state.width.toFixed(1)+" cm";
+ el.nearOut.textContent=state.near.toFixed(1)+" cm";
+ el.depthDetail.textContent=`50 cm-es rúd: ${state.depth.toFixed(1)} cm a fal síkja mögött, ${outside.toFixed(1)} cm a fal előtt.`;
+
+ if(confirmed(state.x,state.row)){
+   el.title.textContent="60.0 cm – igazolt áttörés, II. emelet (Bartha)";
+   el.detail.textContent="Névleges geometria: járat 54–68 cm, tengely 61 cm; a furat a tengelytől 1.0 cm-re.";
+   el.badge.textContent="igazolt áttörés";
+   el.badge.style.color="#dc2626";el.badge.style.borderColor="#dc2626";el.badge.style.background="transparent";
+   return;
+ }
+ el.badge.style.color="var(--text)";el.badge.style.borderColor="var(--border)";
+ if(c.kind==="inside"){
+   el.title.textContent=`${state.x.toFixed(1)} cm – ${c.f.label}`;
+   el.detail.textContent=`Aktuális járat: ${c.f.min.toFixed(1)}–${c.f.max.toFixed(1)} cm; tengely ${c.f.center.toFixed(1)} cm; tengelyeltérés ${Math.abs(c.offset).toFixed(1)} cm.`;
+   el.badge.textContent="járatban";el.badge.style.background="#f28e2b22";
+ }else if(c.kind==="near"){
+   el.title.textContent=`${state.x.toFixed(1)} cm – ${c.f.label} közelében`;
+   el.detail.textContent=`A legközelebbi járatszéltől ${c.distance.toFixed(1)} cm-re, a járaton kívül.`;
+   el.badge.textContent="veszélyesen közel";el.badge.style.background="#ffd84d33";
+ }else{
+   el.title.textContent=`${state.x.toFixed(1)} cm – falazat`;
+   el.detail.textContent=`A legközelebbi járatszéltől ${c.nearest.d.toFixed(1)} cm-re.`;
+   el.badge.textContent="falazat";el.badge.style.background="transparent";
+ }
+}
+
+function renderDepth(){
+ const inside=state.depth,outside=ROD_LENGTH-inside,plane=135,scale=3.2;
+ const xin=plane-inside*scale,xout=plane+outside*scale;
+ el.depthSvg.innerHTML=`
+ <rect x="20" y="28" width="${plane-20}" height="50" fill="currentColor" opacity=".09"/>
+ <line x1="${plane}" y1="17" x2="${plane}" y2="88" stroke="currentColor" stroke-width="2"/>
+ <text x="${plane}" y="12" text-anchor="middle" font-size="9" fill="currentColor">fal síkja</text>
+ <line x1="${xin}" y1="52" x2="${xout}" y2="52" stroke="#b45309" stroke-width="6" stroke-linecap="round"/>
+ <circle cx="${xin}" cy="52" r="4" fill="#b45309"/>
+ <text x="${(xin+plane)/2}" y="72" text-anchor="middle" font-size="9" fill="currentColor">${inside.toFixed(1)} cm bent</text>
+ <text x="${(plane+xout)/2}" y="41" text-anchor="middle" font-size="9" fill="currentColor">${outside.toFixed(1)} cm kint</text>
+ <text x="125" y="99" text-anchor="middle" font-size="9" font-weight="700" fill="currentColor">teljes hossz: 50 cm</text>`;
+}
+
+function renderFront(){
+ const W=1000,L=28,R=16,P=W-L-R,sx=cm=>L+(160-cm)/160*P;
+ const yTop=24,yFlueTop=55,yDoor=205,doorH=38,axisY=297;
+ const ys={upper:105,middle:139,lower:173},names={upper:"Felső",middle:"Középső",lower:"Alsó"};
+ const g=geometry();let s="";
+
+ for(let cm=0;cm<=160;cm++){
+   const x=sx(cm),a=cm%10===0?.18:cm%5===0?.11:.045,w=cm%10===0?1:.6;
+   s+=`<line x1="${x}" y1="${yTop}" x2="${x}" y2="${axisY-18}" stroke="currentColor" opacity="${a}" stroke-width="${w}"/>`;
+ }
+
+ s+=`<line x1="${sx(0)}" y1="18" x2="${sx(0)}" y2="${axisY-10}" stroke="currentColor" stroke-width="2"/>
+ <text x="${sx(0)-5}" y="16" text-anchor="end" font-size="11" font-weight="700" fill="currentColor">jobb fal = 0 cm · gipszkarton</text>`;
+
+ if(state.flues)for(const f of g.flues){
+   const x1=sx(f.max),x2=sx(f.min);
+   s+=`<rect x="${x1}" y="${yFlueTop}" width="${x2-x1}" height="${yDoor-yFlueTop}" fill="#cfefff" fill-opacity=".62" stroke="#174a7e" stroke-width="1.5" stroke-dasharray="6 4"/>
+   <line x1="${sx(f.center)}" y1="${yFlueTop}" x2="${sx(f.center)}" y2="${yDoor}" stroke="#174a7e" opacity=".5" stroke-dasharray="2 3"/>
+   <text x="${sx(f.center)}" y="${yFlueTop+14}" text-anchor="middle" font-size="10" fill="#174a7e">${f.center.toFixed(1)} cm</text>`;
+ }
+
+ for(const [row,list] of Object.entries(holes)){
+   const y=ys[row];
+   s+=`<line x1="${L}" y1="${y}" x2="${W-R}" y2="${y}" stroke="currentColor" opacity=".16"/>
+   <text x="${L}" y="${y-7}" font-size="10" fill="currentColor">${names[row]} polc</text>`;
+   if(state.holes)for(const x of list){
+     const c=classify(x);
+     s+=`<circle cx="${sx(x)}" cy="${y}" r="4.5" fill="${holeColor(c.kind)}" stroke="currentColor" stroke-width=".7"/>`;
+     if(confirmed(x,row))s+=`<circle cx="${sx(x)}" cy="${y}" r="8.5" fill="none" stroke="#dc2626" stroke-width="2"/>
+     <line x1="${sx(x)-10}" y1="${y}" x2="${sx(x)+10}" y2="${y}" stroke="#dc2626" stroke-width="1.5"/>
+     <line x1="${sx(x)}" y1="${y-10}" x2="${sx(x)}" y2="${y+10}" stroke="#dc2626" stroke-width="1.5"/>`;
+   }
+ }
+
+ if(state.doors)for(const d of g.doors){
+   const x1=sx(d.max),x2=sx(d.min),cx=(x1+x2)/2,dw=x2-x1,hingeX=x1+3.2,lockX=cx+dw*.17;
+   s+=`<rect x="${x1-2}" y="${yDoor-2}" width="${dw+4}" height="${doorH+4}" rx="3" fill="#c8c8c3" stroke="#686868"/>
+   <rect x="${x1}" y="${yDoor}" width="${dw}" height="${doorH}" rx="2.5" fill="#e1e1dc" stroke="#555" stroke-width="1.2"/>
+   <line x1="${hingeX}" y1="${yDoor+5}" x2="${hingeX}" y2="${yDoor+14}" stroke="#505050" stroke-width="2.4"/>
+   <line x1="${hingeX}" y1="${yDoor+24}" x2="${hingeX}" y2="${yDoor+33}" stroke="#505050" stroke-width="2.4"/>
+   <circle cx="${cx}" cy="${yDoor+7}" r="1.6" fill="none" stroke="#555"/>
+   <circle cx="${cx}" cy="${yDoor+31}" r="1.6" fill="none" stroke="#555"/>
+   <circle cx="${lockX}" cy="${yDoor+19}" r="5.1" fill="#eeeeea" stroke="#444"/>
+   <circle cx="${lockX}" cy="${yDoor+19}" r="2.2" fill="#4d4d4d"/>
+   <text x="${lockX-7}" y="${yDoor+17}" text-anchor="middle" font-size="6.5" fill="#555">A</text>
+   <text x="${lockX-7}" y="${yDoor+26}" text-anchor="middle" font-size="6.5" fill="#555">Z</text>
+   <text x="${cx}" y="${yDoor+doorH+12}" text-anchor="middle" font-size="9.5" fill="currentColor">${d.min.toFixed(1)}–${d.max.toFixed(1)} cm</text>`;
+ }
+
+ const sy=ys[state.row];
+ s+=`<circle cx="${sx(state.x)}" cy="${sy}" r="11" fill="none" stroke="#2563eb" stroke-width="3"/>
+ <text x="${sx(state.x)}" y="${sy+24}" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">${state.x.toFixed(1)} cm</text>`;
+
+ for(let cm=0;cm<=160;cm+=10)s+=`<text x="${sx(cm)}" y="${axisY}" text-anchor="middle" font-size="10" fill="currentColor">${cm}</text>`;
+ el.front.innerHTML=s;
+}
+
+// 3D
+const host=$("view3d"),scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(38,1,.1,1000);
+camera.position.set(125,82,165);
+
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+host.appendChild(renderer.domElement);
+
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.target.set(0,0,-8);controls.enableDamping=true;
+
+scene.add(new THREE.HemisphereLight(0xffffff,0x777777,2));
+const dl=new THREE.DirectionalLight(0xffffff,2.5);dl.position.set(80,120,100);scene.add(dl);
+
+const wall=new THREE.Mesh(
+ new THREE.BoxGeometry(160,90,22),
+ new THREE.MeshStandardMaterial({color:0xb9b2a8,transparent:true,opacity:state.opacity,roughness:.95,depthWrite:false})
+);
+wall.position.z=-11;scene.add(wall);
+
+const gypsum=new THREE.Mesh(
+ new THREE.BoxGeometry(1.2,94,62),
+ new THREE.MeshStandardMaterial({color:0xe8e5dc,roughness:.9})
+);
+gypsum.position.set(80.6,0,-10);scene.add(gypsum);
+
+const flueGroup=new THREE.Group(),doorGroup=new THREE.Group(),holeGroup=new THREE.Group();
+scene.add(flueGroup,doorGroup,holeGroup);
+
+for(const [row,list] of Object.entries(holes))for(const x of list){
+ const m=new THREE.Mesh(new THREE.SphereGeometry(1.2,16,12),new THREE.MeshStandardMaterial({color:0x111111}));
+ m.position.set(80-x,rowY[row],.7);m.userData={x,row};holeGroup.add(m);
+}
+
+const rod=new THREE.Mesh(
+ new THREE.CylinderGeometry(.7,.7,ROD_LENGTH,20),
+ new THREE.MeshStandardMaterial({color:0xdc2626,metalness:.3,roughness:.3})
+);
+rod.rotation.x=Math.PI/2;scene.add(rod);
+
+const ring=new THREE.Mesh(new THREE.TorusGeometry(2.4,.35,10,32),new THREE.MeshBasicMaterial({color:0xdc2626}));
+ring.position.z=1.8;scene.add(ring);
+
+const grid=new THREE.GridHelper(160,16,0x777777,0xaaaaaa);
+grid.rotation.x=Math.PI/2;grid.position.set(0,-45,1.5);scene.add(grid);
+
+function clearGroup(group){
+ while(group.children.length){
+   const obj=group.children.pop();
+   obj.traverse?.(n=>{
+     if(n.geometry)n.geometry.dispose();
+     if(n.material){
+       if(Array.isArray(n.material))n.material.forEach(m=>m.dispose());
+       else n.material.dispose();
+     }
+   });
+ }
+}
+
+function rebuild3d(){
+ const g=geometry();
+ clearGroup(flueGroup);
+ for(const f of g.flues){
+   const grp=new THREE.Group();
+   const mat=new THREE.MeshStandardMaterial({color:0x8ed6f8,transparent:true,opacity:.46,roughness:.55,depthWrite:false});
+   const straight=new THREE.Mesh(new THREE.BoxGeometry(state.width,82,15),mat);
+   straight.position.set(80-f.center,-1,-7.5);
+   const rounded=new THREE.Mesh(new THREE.CylinderGeometry(state.width/2,state.width/2,82,40),mat.clone());
+   rounded.position.set(80-f.center,-1,-22);
+   grp.add(straight,rounded);flueGroup.add(grp);
+ }
+
+ clearGroup(doorGroup);
+ for(const d of g.doors){
+   const cx=80-d.center;
+   const frame=new THREE.Mesh(new THREE.BoxGeometry(21,19,1),new THREE.MeshStandardMaterial({color:0xb7b7b0,metalness:.25,roughness:.55}));
+   frame.position.set(cx,-29,.3);doorGroup.add(frame);
+
+   const plate=new THREE.Mesh(new THREE.BoxGeometry(20,18,1.2),new THREE.MeshStandardMaterial({color:0xd5d5cf,metalness:.35,roughness:.5}));
+   plate.position.set(cx,-29,1);doorGroup.add(plate);
+
+   const dark=()=>new THREE.MeshStandardMaterial({color:0x555555,metalness:.55,roughness:.45});
+   for(const yy of[-24,-34]){
+     const h=new THREE.Mesh(new THREE.BoxGeometry(.8,3.4,.8),dark());
+     h.position.set(80-d.min-1.1,yy,1.7);doorGroup.add(h);
+   }
+   for(const yy of[-22,-36]){
+     const sc=new THREE.Mesh(new THREE.CylinderGeometry(.65,.65,.5,16),dark());
+     sc.rotation.x=Math.PI/2;sc.position.set(cx,yy,1.7);doorGroup.add(sc);
+   }
+   const lock=new THREE.Mesh(new THREE.CylinderGeometry(2.6,2.6,.8,28),new THREE.MeshStandardMaterial({color:0xbcbcb6,metalness:.6,roughness:.35}));
+   lock.rotation.x=Math.PI/2;lock.position.set(cx-3.2,-29,1.9);doorGroup.add(lock);
+   const inner=new THREE.Mesh(new THREE.CylinderGeometry(1.15,1.15,1,24),dark());
+   inner.rotation.x=Math.PI/2;inner.position.set(cx-3.2,-29,2.2);doorGroup.add(inner);
+ }
+}
+
+function update3d(){
+ wall.material.opacity=state.opacity;
+ gypsum.visible=state.gypsum;holeGroup.visible=state.holes;
+ flueGroup.visible=state.flues;doorGroup.visible=state.doors;
+
+ const wx=80-state.x;
+ rod.position.set(wx,rowY[state.row],25-state.depth);
+ ring.position.set(wx,rowY[state.row],1.8);
+
+ const c=classify(state.x);
+ const hex=confirmed(state.x,state.row)?0xdc2626:c.kind==="inside"?0xf28e2b:c.kind==="near"?0xffd84d:0x111111;
+ rod.material.color.setHex(hex);
+ ring.material.color.setHex(confirmed(state.x,state.row)?0xdc2626:0x2563eb);
+
+ for(const m of holeGroup.children){
+   const cc=classify(m.userData.x);
+   m.material.color.setHex(confirmed(m.userData.x,m.userData.row)?0xdc2626:cc.kind==="inside"?0xf28e2b:cc.kind==="near"?0xffd84d:0x111111);
+ }
+}
+
+function readControls(){
+ state.x=parseFloat(el.x.value);state.row=el.row.value;state.depth=parseFloat(el.depth.value);
+ state.gap=parseFloat(el.gap.value);state.offset=parseFloat(el.offset.value);state.width=parseFloat(el.width.value);
+ state.near=parseFloat(el.near.value);state.opacity=parseFloat(el.opacity.value);
+ state.flues=el.flues.checked;state.doors=el.doors.checked;state.gypsum=el.gypsum.checked;state.holes=el.holes.checked;
+}
+
+function sync(rebuild=false,buttons=true){
+ readControls();updateStatus();renderDepth();renderFront();
+ if(buttons)renderButtons();if(rebuild)rebuild3d();update3d();
+}
+
+el.row.addEventListener("change",()=>{
+ const available=holes[el.row.value],current=parseFloat(el.x.value);
+ if(!available.some(v=>Math.abs(v-current)<.001))el.x.value=String(available[0]);
+ sync(false,true);
+});
+el.x.addEventListener("input",()=>sync(false,true));
+el.depth.addEventListener("input",()=>sync(false,false));
+for(const n of[el.near,el.opacity,el.flues,el.doors,el.gypsum,el.holes])n.addEventListener("input",()=>sync(false,false));
+for(const n of[el.gap,el.offset,el.width])n.addEventListener("input",()=>sync(true,false));
+
+function resize(){
+ const r=host.getBoundingClientRect(),w=Math.max(280,r.width),h=Math.max(280,r.height);
+ renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(host);
+resize();rebuild3d();sync(false,true);
+
+function animate(){controls.update();renderer.render(scene,camera);requestAnimationFrame(animate)}
+animate();
+$("loading").remove();
+</script>
+</body>
+</html>
