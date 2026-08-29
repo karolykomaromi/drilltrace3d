@@ -668,22 +668,12 @@ function rebuild3d(){
  clearGroup(flueGroup);
  for(const f of g.flues){
    const grp=new THREE.Group();
-   const mat=new THREE.MeshStandardMaterial({color:0x8ed6f8,transparent:true,opacity:.46,roughness:.55,depthWrite:false});
-   const CLEANOUT_HEIGHT=18;
-   const CLEANOUT_Y=-29;
-
-   const straight=new THREE.Mesh(
-     new THREE.BoxGeometry(state.width,CLEANOUT_HEIGHT,15),
-     mat
-   );
-   straight.position.set(80-f.center,CLEANOUT_Y,-7.5);
-
    const rounded=new THREE.Mesh(
      new THREE.CylinderGeometry(state.width/2,state.width/2,82,40),
-     mat.clone()
+     new THREE.MeshStandardMaterial({color:0x8ed6f8,transparent:true,opacity:.46,roughness:.55,depthWrite:false})
    );
    rounded.position.set(80-f.center,-1,-22);
-   grp.add(straight,rounded);flueGroup.add(grp);
+   grp.add(rounded);flueGroup.add(grp);
  }
 
  clearGroup(doorGroup);
@@ -709,6 +699,16 @@ function rebuild3d(){
    lock.rotation.x=Math.PI/2;lock.position.set(cx-3.2,-29,1.9);doorGroup.add(lock);
    const inner=new THREE.Mesh(new THREE.CylinderGeometry(1.15,1.15,0.5,24),lighter());
    inner.rotation.x=Math.PI/2;inner.position.set(cx-3.2,-29,1.7);doorGroup.add(inner);
+
+   const CLEANOUT_HEIGHT=18;
+   const CLEANOUT_Y=-29;
+
+   const straight=new THREE.Mesh(
+     new THREE.BoxGeometry(state.width,CLEANOUT_HEIGHT,15),
+     new THREE.MeshStandardMaterial({color:0x8ed6f8,transparent:true,opacity:.46,roughness:.55,depthWrite:false})
+   );
+   straight.position.set(80-d.center,CLEANOUT_Y,-7.5);
+   doorGroup.add(straight);
  }
 }
 
