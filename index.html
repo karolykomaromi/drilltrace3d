@@ -359,11 +359,14 @@ function renderFront(){
  // így a 20 × 26 cm-es arány valóban megmarad.
  const pxPerCm=P/160;
 
- const yTop=24;
- const yFlueTop=55;
- const yDoor=190;
- const axisY=415;
- const viewH=430;
+const yTop=24;
+const yFlueTop=55;
+const yDoor=190;
+
+// Ha az ajtók látszanak, kell a nagyobb magasság.
+// Ha rejtve vannak, a 2D nézet automatikusan összecsukódik.
+const axisY = state.doors ? 415 : 230;
+const viewH  = state.doors ? 430 : 245;
 
  const ys={upper:105,middle:139,lower:173};
  const names={upper:"Felső",middle:"Középső",lower:"Alsó"};
