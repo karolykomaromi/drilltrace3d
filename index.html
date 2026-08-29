@@ -316,58 +316,226 @@ function renderDepth(){
 
 function renderFront(){
  const W=1000,L=28,R=16,P=W-L-R,sx=cm=>L+(160-cm)/160*P;
- const yTop=24,yFlueTop=55,yDoor=205,doorH=38,axisY=297;
- const ys={upper:105,middle:139,lower:173},names={upper:"Felső",middle:"Középső",lower:"Alsó"};
- const g=geometry();let s="";
 
+ // A vízszintes skála a kanonikus 0–160 cm-es skála.
+ // Az ajtó függőleges mérete ugyanebből a cm→SVG skálából készül,
+ // így a 20 × 26 cm-es arány valóban megmarad.
+ const pxPerCm=P/160;
+
+ const yTop=24;
+ const yFlueTop=55;
+ const yDoor=190;
+ const axisY=415;
+ const viewH=430;
+
+ const ys={upper:105,middle:139,lower:173};
+ const names={upper:"Felső",middle:"Középső",lower:"Alsó"};
+ const g=geometry();
+ let s="";
+
+ // A magasabb, méretarányos ajtók miatt nagyobb SVG viewBox.
+ el.front.setAttribute("viewBox",`0 0 ${W} ${viewH}`);
+
+ // Függőleges rácsvonalak
  for(let cm=0;cm<=160;cm++){
-   const x=sx(cm),a=cm%10===0?.18:cm%5===0?.11:.045,w=cm%10===0?1:.6;
-   s+=`<line x1="${x}" y1="${yTop}" x2="${x}" y2="${axisY-18}" stroke="currentColor" opacity="${a}" stroke-width="${w}"/>`;
+   const x=sx(cm);
+   const a=cm%10===0?.18:cm%5===0?.11:.045;
+   const w=cm%10===0?1:.6;
+   s+=`<line x1="${x}" y1="${yTop}" x2="${x}" y2="${axisY-18}"
+             stroke="currentColor" opacity="${a}" stroke-width="${w}"/>`;
  }
 
- s+=`<line x1="${sx(0)}" y1="18" x2="${sx(0)}" y2="${axisY-10}" stroke="currentColor" stroke-width="2"/>
- <text x="${sx(0)-5}" y="16" text-anchor="end" font-size="11" font-weight="700" fill="currentColor">jobb fal = 0 cm · gipszkarton</text>`;
+ // Jobb oldali referenciafal
+ s+=`<line x1="${sx(0)}" y1="18" x2="${sx(0)}" y2="${axisY-10}"
+            stroke="currentColor" stroke-width="2"/>
+ <text x="${sx(0)-5}" y="16" text-anchor="end"
+       font-size="11" font-weight="700" fill="currentColor">
+   jobb fal = 0 cm · gipszkarton
+ </text>`;
 
+ // Járatok: a 2D frontnézetben az ajtók felső élénél megállnak
  if(state.flues)for(const f of g.flues){
    const x1=sx(f.max),x2=sx(f.min);
-   s+=`<rect x="${x1}" y="${yFlueTop}" width="${x2-x1}" height="${yDoor-yFlueTop}" fill="#cfefff" fill-opacity=".62" stroke="#174a7e" stroke-width="1.5" stroke-dasharray="6 4"/>
-   <line x1="${sx(f.center)}" y1="${yFlueTop}" x2="${sx(f.center)}" y2="${yDoor}" stroke="#174a7e" opacity=".5" stroke-dasharray="2 3"/>
-   <text x="${sx(f.center)}" y="${yFlueTop+14}" text-anchor="middle" font-size="10" fill="#174a7e">${f.center.toFixed(1)} cm</text>`;
+   s+=`<rect x="${x1}" y="${yFlueTop}"
+             width="${x2-x1}" height="${yDoor-yFlueTop}"
+             fill="#cfefff" fill-opacity=".62"
+             stroke="#174a7e" stroke-width="1.5"
+             stroke-dasharray="6 4"/>
+   <line x1="${sx(f.center)}" y1="${yFlueTop}"
+         x2="${sx(f.center)}" y2="${yDoor}"
+         stroke="#174a7e" opacity=".5" stroke-dasharray="2 3"/>
+   <text x="${sx(f.center)}" y="${yFlueTop+14}"
+         text-anchor="middle" font-size="10" fill="#174a7e">
+     ${f.center.toFixed(1)} cm
+   </text>`;
  }
 
+ // Polcok és furatok
  for(const [row,list] of Object.entries(holes)){
    const y=ys[row];
-   s+=`<line x1="${L}" y1="${y}" x2="${W-R}" y2="${y}" stroke="currentColor" opacity=".16"/>
-   <text x="${L}" y="${y-7}" font-size="10" fill="currentColor">${names[row]} polc</text>`;
+   s+=`<line x1="${L}" y1="${y}" x2="${W-R}" y2="${y}"
+             stroke="currentColor" opacity=".16"/>
+   <text x="${L}" y="${y-7}" font-size="10" fill="currentColor">
+     ${names[row]} polc
+   </text>`;
+
    if(state.holes)for(const x of list){
      const c=classify(x);
-     s+=`<circle cx="${sx(x)}" cy="${y}" r="4.5" fill="${holeColor(c.kind)}" stroke="currentColor" stroke-width=".7"/>`;
-     if(confirmed(x,row))s+=`<circle cx="${sx(x)}" cy="${y}" r="8.5" fill="none" stroke="#dc2626" stroke-width="2"/>
-     <line x1="${sx(x)-10}" y1="${y}" x2="${sx(x)+10}" y2="${y}" stroke="#dc2626" stroke-width="1.5"/>
-     <line x1="${sx(x)}" y1="${y-10}" x2="${sx(x)}" y2="${y+10}" stroke="#dc2626" stroke-width="1.5"/>`;
+
+     s+=`<circle cx="${sx(x)}" cy="${y}" r="4.5"
+                 fill="${holeColor(c.kind)}"
+                 stroke="currentColor" stroke-width=".7"/>`;
+
+     if(confirmed(x,row))s+=`
+       <circle cx="${sx(x)}" cy="${y}" r="8.5"
+               fill="none" stroke="#dc2626" stroke-width="2"/>
+       <line x1="${sx(x)-10}" y1="${y}"
+             x2="${sx(x)+10}" y2="${y}"
+             stroke="#dc2626" stroke-width="1.5"/>
+       <line x1="${sx(x)}" y1="${y-10}"
+             x2="${sx(x)}" y2="${y+10}"
+             stroke="#dc2626" stroke-width="1.5"/>`;
    }
  }
 
+ // ------------------------------------------------------------------
+ // 2D TISZTÍTÓAJTÓK
+ //
+ // Külső méret: 20 × 26 cm
+ // Perem: 2 cm körben
+ // Belső ajtólap: 16 × 22 cm
+ // Zár: fizikai BAL oldal
+ // Zsanérok: fizikai JOBB oldal
+ // ------------------------------------------------------------------
  if(state.doors)for(const d of g.doors){
-   const x1=sx(d.max),x2=sx(d.min),cx=(x1+x2)/2,dw=x2-x1,hingeX=x1+3.2,lockX=cx+dw*.17;
-   s+=`<rect x="${x1-2}" y="${yDoor-2}" width="${dw+4}" height="${doorH+4}" rx="3" fill="#c8c8c3" stroke="#686868"/>
-   <rect x="${x1}" y="${yDoor}" width="${dw}" height="${doorH}" rx="2.5" fill="#e1e1dc" stroke="#555" stroke-width="1.2"/>
-   <line x1="${hingeX}" y1="${yDoor+5}" x2="${hingeX}" y2="${yDoor+14}" stroke="#505050" stroke-width="2.4"/>
-   <line x1="${hingeX}" y1="${yDoor+24}" x2="${hingeX}" y2="${yDoor+33}" stroke="#505050" stroke-width="2.4"/>
-   <circle cx="${cx}" cy="${yDoor+7}" r="1.6" fill="none" stroke="#555"/>
-   <circle cx="${cx}" cy="${yDoor+31}" r="1.6" fill="none" stroke="#555"/>
-   <circle cx="${lockX}" cy="${yDoor+19}" r="5.1" fill="#eeeeea" stroke="#444"/>
-   <circle cx="${lockX}" cy="${yDoor+19}" r="2.2" fill="#4d4d4d"/>
-   <text x="${lockX-7}" y="${yDoor+17}" text-anchor="middle" font-size="6.5" fill="#555">A</text>
-   <text x="${lockX-7}" y="${yDoor+26}" text-anchor="middle" font-size="6.5" fill="#555">Z</text>
-   <text x="${cx}" y="${yDoor+doorH+12}" text-anchor="middle" font-size="9.5" fill="currentColor">${d.min.toFixed(1)}–${d.max.toFixed(1)} cm</text>`;
+   // x1 = fizikai bal oldal a képernyőn
+   // x2 = fizikai jobb oldal a képernyőn
+   const x1=sx(d.max);
+   const x2=sx(d.min);
+   const cx=(x1+x2)/2;
+   const dw=x2-x1;
+
+   // Az ajtó teljes magassága méretarányosan 26 cm
+   const outerH=26*pxPerCm;
+
+   // 2 cm-es perem minden oldalon
+   const rim=2*pxPerCm;
+   const innerX=x1+rim;
+   const innerY=yDoor+rim;
+   const innerW=dw-2*rim;       // 16 cm
+   const innerH=outerH-2*rim;   // 22 cm
+
+   // Zsanérok a fizikai JOBB oldalon
+   const hingeW=.8*pxPerCm;
+   const hingeH=3.4*pxPerCm;
+   const hingeX=x2-rim-(hingeW*.55);
+   const hingeTopY=yDoor+5.0*pxPerCm;
+   const hingeBottomY=yDoor+outerH-5.0*pxPerCm-hingeH;
+
+   // Felső / alsó középső rögzítő pontok
+   const screwR=.65*pxPerCm;
+   const screwTopY=yDoor+3.5*pxPerCm;
+   const screwBottomY=yDoor+outerH-3.5*pxPerCm;
+
+   // Zár a fizikai BAL oldalon
+   const lockCx=x1+5.0*pxPerCm;
+   const lockCy=yDoor+outerH/2;
+
+   const lockStemW=1.0*pxPerCm;
+   const lockStemH=2.0*pxPerCm;
+   const lockR=1.15*pxPerCm;
+
+   // A és Z: ugyanazon a bal oldali zár-környéken,
+   // de a korábbinál kissé távolabb egymástól.
+   const labelX=lockCx-2.7*pxPerCm;
+   const aY=lockCy-4.2*pxPerCm;
+   const zY=lockCy+5.0*pxPerCm;
+
+   s+=`
+     <!-- 20 × 26 cm külső fém keret -->
+     <rect x="${x1}" y="${yDoor}"
+           width="${dw}" height="${outerH}"
+           rx="${.55*pxPerCm}"
+           fill="#b7b7b0"
+           stroke="#5c5c5c"
+           stroke-width="1.2"/>
+
+     <!-- 16 × 22 cm belső ajtólap: 2 cm perem körben -->
+     <rect x="${innerX}" y="${innerY}"
+           width="${innerW}" height="${innerH}"
+           rx="${.35*pxPerCm}"
+           fill="#d5d5cf"
+           stroke="#696969"
+           stroke-width="1"/>
+
+     <!-- felső és alsó középső rögzítés -->
+     <circle cx="${cx}" cy="${screwTopY}" r="${screwR}"
+             fill="#bcbcb6" stroke="#666" stroke-width=".6"/>
+     <circle cx="${cx}" cy="${screwBottomY}" r="${screwR}"
+             fill="#bcbcb6" stroke="#666" stroke-width=".6"/>
+
+     <!-- jobb oldali zsanérok -->
+     <rect x="${hingeX}" y="${hingeTopY}"
+           width="${hingeW}" height="${hingeH}"
+           rx="${hingeW/2}"
+           fill="#bcbcb6" stroke="#666" stroke-width=".6"/>
+     <rect x="${hingeX}" y="${hingeBottomY}"
+           width="${hingeW}" height="${hingeH}"
+           rx="${hingeW/2}"
+           fill="#bcbcb6" stroke="#666" stroke-width=".6"/>
+
+     <!-- bal oldali zár -->
+     <rect x="${lockCx-lockStemW/2}" y="${lockCy-lockStemH/2}"
+           width="${lockStemW}" height="${lockStemH}"
+           rx="${.15*pxPerCm}"
+           fill="#bcbcb6" stroke="#5d5d5d" stroke-width=".6"/>
+     <circle cx="${lockCx}" cy="${lockCy}" r="${lockR}"
+             fill="#bcbcb6" stroke="#5d5d5d" stroke-width=".6"/>
+
+     <!-- A / Z -->
+     <text x="${labelX}" y="${aY}"
+           text-anchor="middle"
+           dominant-baseline="middle"
+           font-size="${1.35*pxPerCm}"
+           font-weight="600"
+           fill="#555">A</text>
+
+     <text x="${labelX}" y="${zY}"
+           text-anchor="middle"
+           dominant-baseline="middle"
+           font-size="${1.35*pxPerCm}"
+           font-weight="600"
+           fill="#555">Z</text>
+
+     <!-- Ajtó vízszintes koordinátatartománya -->
+     <text x="${cx}" y="${yDoor+outerH+14}"
+           text-anchor="middle"
+           font-size="9.5"
+           fill="currentColor">
+       ${d.min.toFixed(1)}–${d.max.toFixed(1)} cm
+     </text>`;
  }
 
+ // Aktuálisan kijelölt furat
  const sy=ys[state.row];
- s+=`<circle cx="${sx(state.x)}" cy="${sy}" r="11" fill="none" stroke="#2563eb" stroke-width="3"/>
- <text x="${sx(state.x)}" y="${sy+24}" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">${state.x.toFixed(1)} cm</text>`;
+ s+=`<circle cx="${sx(state.x)}" cy="${sy}" r="11"
+             fill="none" stroke="#2563eb" stroke-width="3"/>
+ <text x="${sx(state.x)}" y="${sy+24}"
+       text-anchor="middle"
+       font-size="11"
+       font-weight="700"
+       fill="currentColor">
+   ${state.x.toFixed(1)} cm
+ </text>`;
 
- for(let cm=0;cm<=160;cm+=10)s+=`<text x="${sx(cm)}" y="${axisY}" text-anchor="middle" font-size="10" fill="currentColor">${cm}</text>`;
+ // Alsó koordinátaskála
+ for(let cm=0;cm<=160;cm+=10){
+   s+=`<text x="${sx(cm)}" y="${axisY}"
+             text-anchor="middle"
+             font-size="10"
+             fill="currentColor">${cm}</text>`;
+ }
+
  el.front.innerHTML=s;
 }
 
@@ -481,10 +649,10 @@ function rebuild3d(){
  clearGroup(doorGroup);
  for(const d of g.doors){
    const cx=80-d.center;
-   const frame=new THREE.Mesh(new THREE.BoxGeometry(20,28,1),new THREE.MeshStandardMaterial({color:0xb7b7b0,metalness:.25,roughness:.55}));
+   const frame=new THREE.Mesh(new THREE.BoxGeometry(20,26,1),new THREE.MeshStandardMaterial({color:0xb7b7b0,metalness:.25,roughness:.55}));
    frame.position.set(cx,-29,.3);doorGroup.add(frame);
 
-   const plate=new THREE.Mesh(new THREE.BoxGeometry(14,22,1.2),new THREE.MeshStandardMaterial({color:0xd5d5cf,metalness:.35,roughness:.5}));
+   const plate=new THREE.Mesh(new THREE.BoxGeometry(14,20,1.2),new THREE.MeshStandardMaterial({color:0xd5d5cf,metalness:.35,roughness:.5}));
    plate.position.set(cx,-29,1);doorGroup.add(plate);
 
    const dark=()=>new THREE.MeshStandardMaterial({color:0x555555,metalness:.55,roughness:.45});
