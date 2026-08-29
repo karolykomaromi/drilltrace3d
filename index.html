@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Furatmélység interaktív 3D rekonstrukció</title>
+<title>DrillTrace3D – interaktív 2D/3D rekonstrukció</title>
 
 <script type="importmap">
 {
@@ -33,6 +33,40 @@ h1{margin:0;font-size:clamp(1.35rem,2.1vw,2rem)}
 .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px}
 .group+.group{border-top:1px solid var(--border);margin-top:15px;padding-top:14px}
 .group-title{font-weight:750;font-size:.94rem}
+.fold{padding:0}
+.fold>summary{
+  list-style:none;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  cursor:pointer;
+  user-select:none;
+  font-weight:750;
+  font-size:.94rem;
+  padding:1px 0;
+}
+.fold>summary::-webkit-details-marker{display:none}
+.fold>summary::after{
+  content:"›";
+  display:inline-block;
+  font-size:1.25rem;
+  line-height:1;
+  color:var(--muted);
+  transform:rotate(0deg);
+  transition:transform .16s ease;
+}
+.fold[open]>summary::after{transform:rotate(90deg)}
+.fold-body{padding-top:5px}
+.depth-controls{
+  margin-top:7px;
+}
+.depth-card-title{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:8px;
+}
 .hint{font-size:.78rem;color:var(--muted);margin:4px 0 0}
 label{display:block;font-size:.89rem;margin-top:10px}
 .range{display:flex;align-items:center;gap:9px;margin-top:3px}
@@ -61,7 +95,7 @@ button.active{border-color:var(--accent);background:var(--accent-bg);font-weight
 .front-card{margin-top:16px}
 .front-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
 .front-wrap{overflow-x:auto;margin-top:8px}
-#frontSvg{display:block;min-width:780px;width:100%}
+#frontSvg{display:block;min-width:900px;width:100%;height:auto}
 .legend{font-size:.78rem;color:var(--muted)}
 @media(max-width:850px){.layout{grid-template-columns:1fr}.viewer{height:420px}.status-grid{grid-template-columns:1fr}}
 @media(max-width:480px){main{padding:10px}.viewer{height:360px}}
@@ -70,7 +104,7 @@ button.active{border-color:var(--accent);background:var(--accent-bg);font-weight
 
 <body>
 <main>
-  <h1>Furatmélység interaktív 3D rekonstrukció</h1>
+  <h1>DrillTrace3D</h1>
   <p class="lead">Munkamodell. A vízszintes koordináták a jobb oldali faltól mértek: 0 cm → 160 cm, jobbról balra.</p>
 
   <div class="layout">
@@ -99,18 +133,8 @@ button.active{border-color:var(--accent);background:var(--accent-bg);font-weight
       </section>
 
       <section class="group">
-        <div class="group-title">Rúd / furat mélysége</div>
-        <div class="mini"><span>Rúd teljes hossza</span><strong>50 cm</strong></div>
-        <label for="depth">Falba bevertség</label>
-        <div class="range">
-          <input id="depth" type="range" min="20" max="40" step="0.5" value="30">
-          <output id="depthOut">30.0 cm</output>
-        </div>
-        <div class="mini"><span>Fal előtt maradó rész</span><output id="outsideOut">20.0 cm</output></div>
-      </section>
-
-      <section class="group">
         <div class="group-title">Ajtók helyzete</div>
+
         <label for="gap">Ajtók közötti tiszta hézag</label>
         <div class="range">
           <input id="gap" type="range" min="0" max="15" step="0.1" value="7">
@@ -122,34 +146,39 @@ button.active{border-color:var(--accent);background:var(--accent-bg);font-weight
           <input id="offset" type="range" min="20" max="30" step="0.1" value="24">
           <output id="offsetOut">24.0 cm</output>
         </div>
+
         <p class="hint">A járatok az ajtók közepén maradnak.</p>
       </section>
 
-      <section class="group">
-        <div class="group-title">Érzékenységvizsgálat</div>
-        <label for="flueWidth">Járatszélesség</label>
-        <div class="range">
-          <input id="flueWidth" type="range" min="12" max="16" step="0.1" value="14">
-          <output id="flueWidthOut">14.0 cm</output>
+      <details class="group fold" open>
+        <summary>Érzékenységvizsgálat</summary>
+        <div class="fold-body">
+          <label for="flueWidth">Járatszélesség</label>
+          <div class="range">
+            <input id="flueWidth" type="range" min="12" max="16" step="0.1" value="14">
+            <output id="flueWidthOut">14.0 cm</output>
+          </div>
+
+          <label for="near">Veszélyes közelség</label>
+          <div class="range">
+            <input id="near" type="range" min="0" max="5" step="0.1" value="2">
+            <output id="nearOut">2.0 cm</output>
+          </div>
         </div>
+      </details>
 
-        <label for="near">Veszélyes közelség</label>
-        <div class="range">
-          <input id="near" type="range" min="0" max="5" step="0.1" value="2">
-          <output id="nearOut">2.0 cm</output>
+      <details class="group fold">
+        <summary>Megjelenítés</summary>
+        <div class="fold-body">
+          <label class="check"><input id="showFlues" type="checkbox" checked> Járatok</label>
+          <label class="check"><input id="showDoors" type="checkbox" checked> Tisztítóajtók</label>
+          <label class="check"><input id="showGypsum" type="checkbox" checked> Gipszkarton oldalfal</label>
+          <label class="check"><input id="showHoles" type="checkbox" checked> Mind a 10 furat</label>
+
+          <label for="opacity">Homlokfal átlátszósága</label>
+          <input id="opacity" type="range" min="0" max="0.65" step="0.05" value="0.18" style="width:100%">
         </div>
-      </section>
-
-      <section class="group">
-        <div class="group-title">Megjelenítés</div>
-        <label class="check"><input id="showFlues" type="checkbox" checked> Járatok</label>
-        <label class="check"><input id="showDoors" type="checkbox" checked> Tisztítóajtók</label>
-        <label class="check"><input id="showGypsum" type="checkbox" checked> Gipszkarton oldalfal</label>
-        <label class="check"><input id="showHoles" type="checkbox" checked> Mind a 10 furat</label>
-
-        <label for="opacity">Homlokfal átlátszósága</label>
-        <input id="opacity" type="range" min="0" max="0.65" step="0.05" value="0.18" style="width:100%">
-      </section>
+      </details>
     </aside>
 
     <section>
@@ -166,12 +195,22 @@ button.active{border-color:var(--accent);background:var(--accent-bg);font-weight
             <span id="badge" class="badge"></span>
           </div>
           <div id="statusDetail" class="detail"></div>
-          <div id="depthDetail" class="depth-detail"></div>
         </section>
 
         <section class="card">
           <strong>Mélységi séma</strong>
-          <svg id="depthSvg" viewBox="0 0 250 105" aria-label="A rúd falba hatolási mélysége"></svg>
+
+          <div class="depth-controls">
+            <div class="range">
+              <input id="depth"
+                     aria-label="Falba bevertség"
+                     type="range" min="20" max="40" step="0.5" value="30">
+              <output id="depthOut">30.0 cm</output>
+            </div>
+          </div>
+
+          <svg id="depthSvg" viewBox="0 0 250 105"
+               aria-label="A rúd falba hatolási mélysége"></svg>
         </section>
       </div>
     </section>
@@ -216,12 +255,12 @@ const state={
 const $=id=>document.getElementById(id);
 const el={
  x:$("holeX"),xOut:$("holeXOut"),row:$("shelf"),buttons:$("holeButtons"),
- depth:$("depth"),depthOut:$("depthOut"),outsideOut:$("outsideOut"),
+ depth:$("depth"),depthOut:$("depthOut"),
  gap:$("gap"),gapOut:$("gapOut"),offset:$("offset"),offsetOut:$("offsetOut"),
  width:$("flueWidth"),widthOut:$("flueWidthOut"),near:$("near"),nearOut:$("nearOut"),
  opacity:$("opacity"),flues:$("showFlues"),doors:$("showDoors"),
  gypsum:$("showGypsum"),holes:$("showHoles"),
- title:$("statusTitle"),detail:$("statusDetail"),depthDetail:$("depthDetail"),
+ title:$("statusTitle"),detail:$("statusDetail"),
  badge:$("badge"),front:$("frontSvg"),depthSvg:$("depthSvg")
 };
 
@@ -267,15 +306,13 @@ function renderButtons(){
 }
 
 function updateStatus(){
- const c=classify(state.x),outside=ROD_LENGTH-state.depth;
+ const c=classify(state.x);
  el.xOut.textContent=state.x.toFixed(1)+" cm";
  el.depthOut.textContent=state.depth.toFixed(1)+" cm";
- el.outsideOut.textContent=outside.toFixed(1)+" cm";
  el.gapOut.textContent=state.gap.toFixed(1)+" cm";
  el.offsetOut.textContent=state.offset.toFixed(1)+" cm";
  el.widthOut.textContent=state.width.toFixed(1)+" cm";
  el.nearOut.textContent=state.near.toFixed(1)+" cm";
- el.depthDetail.textContent=`50 cm-es rúd: ${state.depth.toFixed(1)} cm a fal síkja mögött, ${outside.toFixed(1)} cm a fal előtt.`;
 
  if(confirmed(state.x,state.row)){
    el.title.textContent="60.0 cm – igazolt áttörés, II. emelet (Bartha)";
@@ -447,7 +484,7 @@ function renderFront(){
 
    // A és Z: ugyanazon a bal oldali zár-környéken,
    // de a korábbinál kissé távolabb egymástól.
-   const labelX=lockCx-2.7*pxPerCm;
+   const labelX=lockCx;
    const aY=lockCy-4.2*pxPerCm;
    const zY=lockCy+5.0*pxPerCm;
 
