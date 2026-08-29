@@ -386,10 +386,10 @@ scene.add(new THREE.HemisphereLight(0xffffff,0x777777,2));
 const dl=new THREE.DirectionalLight(0xffffff,2.5);dl.position.set(80,120,100);scene.add(dl);
 
 const wall=new THREE.Mesh(
- new THREE.BoxGeometry(160,90,22),
+ new THREE.BoxGeometry(160,90,40),
  new THREE.MeshStandardMaterial({color:0xb9b2a8,transparent:true,opacity:state.opacity,roughness:.95,depthWrite:false})
 );
-wall.position.z=-11;scene.add(wall);
+wall.position.z=-20;scene.add(wall);
 
 const gypsum=new THREE.Mesh(
  new THREE.BoxGeometry(1.2,94,62),
@@ -461,8 +461,6 @@ function rebuild3d(){
  for(const f of g.flues){
    const grp=new THREE.Group();
    const mat=new THREE.MeshStandardMaterial({color:0x8ed6f8,transparent:true,opacity:.46,roughness:.55,depthWrite:false});
-   // Az ajtó síkjától kb. 15 cm mélységig tartó egyenes szakasz
-   // csak a tisztítóajtó függőleges tartományában jelenik meg.
    const CLEANOUT_HEIGHT=18;
    const CLEANOUT_Y=-29;
 
@@ -472,8 +470,6 @@ function rebuild3d(){
    );
    straight.position.set(80-f.center,CLEANOUT_Y,-7.5);
 
-   // A lekerekített / hengeres járatrész továbbra is végigfut
-   // a modell teljes szemléltetett magasságában.
    const rounded=new THREE.Mesh(
      new THREE.CylinderGeometry(state.width/2,state.width/2,82,40),
      mat.clone()
@@ -485,25 +481,26 @@ function rebuild3d(){
  clearGroup(doorGroup);
  for(const d of g.doors){
    const cx=80-d.center;
-   const frame=new THREE.Mesh(new THREE.BoxGeometry(21,19,1),new THREE.MeshStandardMaterial({color:0xb7b7b0,metalness:.25,roughness:.55}));
+   const frame=new THREE.Mesh(new THREE.BoxGeometry(20,28,1),new THREE.MeshStandardMaterial({color:0xb7b7b0,metalness:.25,roughness:.55}));
    frame.position.set(cx,-29,.3);doorGroup.add(frame);
 
-   const plate=new THREE.Mesh(new THREE.BoxGeometry(20,18,1.2),new THREE.MeshStandardMaterial({color:0xd5d5cf,metalness:.35,roughness:.5}));
+   const plate=new THREE.Mesh(new THREE.BoxGeometry(14,22,1.2),new THREE.MeshStandardMaterial({color:0xd5d5cf,metalness:.35,roughness:.5}));
    plate.position.set(cx,-29,1);doorGroup.add(plate);
 
    const dark=()=>new THREE.MeshStandardMaterial({color:0x555555,metalness:.55,roughness:.45});
-   for(const yy of[-24,-34]){
-     const h=new THREE.Mesh(new THREE.BoxGeometry(.8,3.4,.8),dark());
-     h.position.set(80-d.min-1.1,yy,1.7);doorGroup.add(h);
+   const lighter=()=>new THREE.MeshStandardMaterial({color:0xbcbcb6,metalness:.6,roughness:.35});
+   for(const yy of[-22,-36]){
+     const h=new THREE.Mesh(new THREE.BoxGeometry(.8,3.4,.8),lighter());
+     h.position.set(80-d.min-2.8,yy,1.7);doorGroup.add(h);
    }
    for(const yy of[-22,-36]){
-     const sc=new THREE.Mesh(new THREE.CylinderGeometry(.65,.65,.5,16),dark());
+     const sc=new THREE.Mesh(new THREE.CylinderGeometry(.65,.65,.5,16),lighter());
      sc.rotation.x=Math.PI/2;sc.position.set(cx,yy,1.7);doorGroup.add(sc);
    }
-   const lock=new THREE.Mesh(new THREE.CylinderGeometry(2.6,2.6,.8,28),new THREE.MeshStandardMaterial({color:0xbcbcb6,metalness:.6,roughness:.35}));
+   const lock=new THREE.Mesh(new THREE.BoxGeometry(1,2,1,28),lighter());
    lock.rotation.x=Math.PI/2;lock.position.set(cx-3.2,-29,1.9);doorGroup.add(lock);
-   const inner=new THREE.Mesh(new THREE.CylinderGeometry(1.15,1.15,1,24),dark());
-   inner.rotation.x=Math.PI/2;inner.position.set(cx-3.2,-29,2.2);doorGroup.add(inner);
+   const inner=new THREE.Mesh(new THREE.CylinderGeometry(1.15,1.15,0.5,24),lighter());
+   inner.rotation.x=Math.PI/2;inner.position.set(cx-3.2,-29,1.7);doorGroup.add(inner);
  }
 }
 
