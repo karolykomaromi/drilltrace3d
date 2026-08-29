@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Polc rögzítési furatmélység – interaktív 3D rekonstrukció</title>
+<title>Furatmélység interaktív 3D rekonstrukció</title>
 
 <script type="importmap">
 {
@@ -70,7 +70,7 @@ button.active{border-color:var(--accent);background:var(--accent-bg);font-weight
 
 <body>
 <main>
-  <h1>Kémény incidens – interaktív 3D rekonstrukció</h1>
+  <h1>Furatmélység interaktív 3D rekonstrukció</h1>
   <p class="lead">Munkamodell. A vízszintes koordináták a jobb oldali faltól mértek: 0 cm → 160 cm, jobbról balra.</p>
 
   <div class="layout">
@@ -414,8 +414,33 @@ rod.rotation.x=Math.PI/2;scene.add(rod);
 const ring=new THREE.Mesh(new THREE.TorusGeometry(2.4,.35,10,32),new THREE.MeshBasicMaterial({color:0xdc2626}));
 ring.position.z=1.8;scene.add(ring);
 
-const grid=new THREE.GridHelper(160,16,0x777777,0xaaaaaa);
-grid.rotation.x=Math.PI/2;grid.position.set(0,-45,1.5);scene.add(grid);
+// Méretarányos 160 × 90 cm-es homlokzati rács.
+// A cellák valódi 10 × 10 cm-es négyzetek, és a rács pontosan
+// a fal alsó élétől (-45 cm) a felső éléig (+45 cm) tart.
+function createWallGrid(width=160,height=90,step=10){
+ const pts=[];
+ const x0=-width/2,x1=width/2,y0=-height/2,y1=height/2;
+
+ for(let x=x0;x<=x1+1e-9;x+=step){
+   pts.push(x,y0,1.5, x,y1,1.5);
+ }
+ for(let y=y0;y<=y1+1e-9;y+=step){
+   pts.push(x0,y,1.5, x1,y,1.5);
+ }
+
+ const geom=new THREE.BufferGeometry();
+ geom.setAttribute("position",new THREE.Float32BufferAttribute(pts,3));
+
+ const mat=new THREE.LineBasicMaterial({
+   color:0x888888,
+   transparent:true,
+   opacity:.28
+ });
+
+ return new THREE.LineSegments(geom,mat);
+}
+const grid=createWallGrid();
+scene.add(grid);
 
 function clearGroup(group){
  while(group.children.length){
@@ -436,9 +461,23 @@ function rebuild3d(){
  for(const f of g.flues){
    const grp=new THREE.Group();
    const mat=new THREE.MeshStandardMaterial({color:0x8ed6f8,transparent:true,opacity:.46,roughness:.55,depthWrite:false});
-   const straight=new THREE.Mesh(new THREE.BoxGeometry(state.width,82,15),mat);
-   straight.position.set(80-f.center,-1,-7.5);
-   const rounded=new THREE.Mesh(new THREE.CylinderGeometry(state.width/2,state.width/2,82,40),mat.clone());
+   // Az ajtó síkjától kb. 15 cm mélységig tartó egyenes szakasz
+   // csak a tisztítóajtó függőleges tartományában jelenik meg.
+   const CLEANOUT_HEIGHT=18;
+   const CLEANOUT_Y=-29;
+
+   const straight=new THREE.Mesh(
+     new THREE.BoxGeometry(state.width,CLEANOUT_HEIGHT,15),
+     mat
+   );
+   straight.position.set(80-f.center,CLEANOUT_Y,-7.5);
+
+   // A lekerekített / hengeres járatrész továbbra is végigfut
+   // a modell teljes szemléltetett magasságában.
+   const rounded=new THREE.Mesh(
+     new THREE.CylinderGeometry(state.width/2,state.width/2,82,40),
+     mat.clone()
+   );
    rounded.position.set(80-f.center,-1,-22);
    grp.add(straight,rounded);flueGroup.add(grp);
  }
