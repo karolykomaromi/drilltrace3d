@@ -143,8 +143,8 @@ button.active{border-color:var(--accent);background:var(--accent-bg);font-weight
 
         <label for="offset">1. ajtó jobb széle a faltól</label>
         <div class="range">
-          <input id="offset" type="range" min="20" max="30" step="0.1" value="24">
-          <output id="offsetOut">24.0 cm</output>
+          <input id="offset" type="range" min="20" max="30" step="0.1" value="24.5">
+          <output id="offsetOut">24.5 cm</output>
         </div>
 
         <p class="hint">A járatok az ajtók közepén maradnak.</p>
@@ -248,7 +248,7 @@ const rowY={upper:18,middle:5,lower:-8};
 const ROD_LENGTH=50;
 
 const state={
- x:60,row:"upper",depth:30,gap:7,offset:24,width:14,near:2,opacity:.18,
+ x:60,row:"upper",depth:30,gap:7,offset:24.5,width:14,near:2,opacity:.18,
  flues:true,doors:true,gypsum:true,holes:true
 };
 
@@ -288,7 +288,7 @@ function classify(x){
 }
 
 function nominal(){
- return Math.abs(state.gap-7)<.001&&Math.abs(state.offset-24)<.001&&Math.abs(state.width-14)<.001;
+ return Math.abs(state.gap-7)<.001&&Math.abs(state.offset-24.5)<.001&&Math.abs(state.width-14)<.001;
 }
 function confirmed(x,row){return nominal()&&row==="upper"&&Math.abs(x-60)<.001}
 function holeColor(kind){return kind==="inside"?"#f28e2b":kind==="near"?"#ffd84d":"#111111"}
@@ -316,7 +316,7 @@ function updateStatus(){
 
  if(confirmed(state.x,state.row)){
    el.title.textContent="60.0 cm – igazolt áttörés, II. emelet (Bartha)";
-   el.detail.textContent="Névleges geometria: járat 54–68 cm, tengely 61 cm; a furat a tengelytől 1.0 cm-re.";
+   el.detail.textContent="Névleges geometria: járat 54.5–68.5 cm, tengely 61.5 cm; a furat a tengelytől 1.5 cm-re.";
    el.badge.textContent="igazolt áttörés";
    el.badge.style.color="#dc2626";el.badge.style.borderColor="#dc2626";el.badge.style.background="transparent";
    return;
